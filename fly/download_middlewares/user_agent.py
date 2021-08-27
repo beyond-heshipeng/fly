@@ -1,0 +1,2 @@
+class UserAgentMiddleware:
+    pass

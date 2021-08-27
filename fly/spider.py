@@ -1,15 +1,17 @@
 import asyncio
 import sys
-import time
 from asyncio import Semaphore
 from types import AsyncGeneratorType
 from typing import Optional, AsyncIterable, Callable, Coroutine
 
+import aiohttp
+
 from fly.downloader import Downloader
 from fly.exceptions import QueueEmptyErr
+from fly.settings import Settings
 from fly.http.request import Request
 from fly.http.response import Response
-from fly.spidermw import MiddlewareManager
+from fly.middleware import MiddlewareManager
 from fly.utils.log import Logger
 from fly.utils.settings import get_settings
 
@@ -30,11 +32,7 @@ except ImportError:
     pass
 
 
-class Base:
-    pass
-
-
-class Spider(Base):
+class Spider:
     name: Optional[str] = None
     start_urls: Optional[list] = []
 
@@ -56,10 +54,13 @@ class Spider(Base):
 
         self.settings = get_settings(self.custom_settings)
         self.logger = Logger(self.settings, self.name)
-        self.loop = asyncio.get_event_loop()
-        self.queue = asyncio.PriorityQueue()
 
-        self.downloader = Downloader(self.settings)
+        self.loop = asyncio.get_event_loop()
+        self.queue = asyncio.Queue()
+        self.semaphore = asyncio.Semaphore(self.settings.getint("CONCURRENT_REQUESTS"))
+
+        self.session = aiohttp.ClientSession()
+        self.downloader = Downloader(self.settings, self.session)
 
         self.middleware_manager = MiddlewareManager()
         # register spider middleware
@@ -73,7 +74,7 @@ class Spider(Base):
 
     async def make_request_from_url(self) -> AsyncIterable:
         for url in self.start_urls:
-            yield Request(url=url, skip_filter=True)
+            yield Request(url, skip_filter=True)
 
     async def enqueue_request(self, request: Request) -> None:
         self.queue.put_nowait((request.priority, request))
@@ -81,7 +82,7 @@ class Spider(Base):
     async def has_pending_requests(self) -> bool:
         return self.queue.empty()
 
-    async def next_request(self) -> Request:
+    def _next_request(self) -> Request:
         try:
             _, request = self.queue.get_nowait()
         except asyncio.queues.QueueEmpty:
@@ -140,43 +141,48 @@ class Spider(Base):
         if result and isinstance(result, Response):
             response = result
 
-        print(response.body)
+        self.logger.debug(f"Crawled ({response.status}) <{request.method} {request.url}>")
 
         # call request callback
         if request.callback:
             await self._handle_request_callback(request.callback, response)
 
-    async def _start(self):
-        # collect requests
+    async def _run(self):
         async for request in self.make_request_from_url():
+            print(request)
             await self.enqueue_request(request)
-
-        # execute spider middleware
-        await self.middleware_manager.process_spider_start(self)
-
-        semaphore = asyncio.Semaphore(self.settings.getint("CONCURRENT_REQUESTS"))
 
         while not self._close_spider:
             try:
-                request = await self.next_request()
-                await self._handle_request(request, semaphore)
-
+                request = self._next_request()
+                asyncio.ensure_future(self._handle_request(request, self.semaphore))
             except QueueEmptyErr:
                 await asyncio.sleep(0.00001)
 
-        await self.middleware_manager.process_spider_stop(self)
-
     def fly(self):
         self.logger.debug(f"{self.name} started")
-        self.logger.debug(f"Overridden settings: {str(self.custom_settings)}")
+        self.logger.debug(f"Overridden settings: {Settings(self.custom_settings)}")
 
         try:
-            self.loop.run_until_complete(self._start())
+            asyncio.run(self.middleware_manager.process_spider_start(self))
+
+            self.loop.run_until_complete(self._run())
             self.loop.run_until_complete(self.loop.shutdown_asyncgens())
         except KeyboardInterrupt:
-            asyncio.run(self.stop())
+            # asyncio.run(self.middleware_manager.process_spider_stop(self))
+            asyncio.run(self._stop())
         finally:
+            self.logger.debug(f"Success count: {self._success_count}")
+            self.logger.debug(f"Failure count: {self._failed_count}")
+            self.logger.debug(f"Total count: {self._success_count + self._failed_count}")
+            self.logger.debug(f"Closing {self.name} (finished)")
+
+            # logger.info('Error count: {}'.formast(len(cls.error_urls)))
+            # logger.info('Time usage: {}'.format(end_time - start_time))
+            # logger.info('Spider finished!')
+
             self.loop.close()
+            asyncio.run(self.session.close())
 
     @staticmethod
     async def cancel_all_tasks():
@@ -192,7 +198,7 @@ class Spider(Base):
                 task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def stop(self):
+    async def _stop(self):
         """
         Finish all running tasks, cancel remaining tasks.
         :return:
@@ -201,3 +207,4 @@ class Spider(Base):
         await self.cancel_all_tasks()
         self.loop.stop()
         self._close_spider = True
+

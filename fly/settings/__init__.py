@@ -1,6 +1,7 @@
 import copy
 import json
 from collections import Mapping
+from fly.utils.display import _pformat
 
 
 class Settings(Mapping):
@@ -140,9 +141,4 @@ class Settings(Mapping):
         return len(self.attributes)
 
     def __str__(self):
-        return f"{type(self)}: {{" \
-               + ", ".join([f"{key}: '{value}'"
-                            if type(value) is str
-                            else f"{key}: {value}"
-                            for key, value in self.attributes.items()]) \
-               + "}"
+        return _pformat(self.attributes)

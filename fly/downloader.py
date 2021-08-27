@@ -43,7 +43,7 @@ class Downloader:
         if self.delay:
             await asyncio.sleep(self.download_delay)
 
-        timeout = self.settings.getint("DOWNLOAD_TIMEOUT", 10)
+        timeout = self.settings.getint("DOWNLOAD_TIMEOUT", 60)
         try:
             async with async_timeout.timeout(timeout):
                 resp = await self._make_request(request)
@@ -59,7 +59,9 @@ class Downloader:
             return response
 
         except asyncio.TimeoutError:
-            raise asyncio.TimeoutError("")
+            pass
+        except aiohttp.ClientOSError:
+            pass
         finally:
             # Close client session
             if self.close_request_session:
