@@ -5,8 +5,8 @@ from fly.settings import Settings
 
 
 class Logger:
-    def __init__(self, settings: Settings, name: str = None):
-        self.settings = settings
+    def __init__(self, settings: Settings = None, name: str = None):
+        self.settings = settings or Settings()
         self.root = logging.getLogger(name)
 
         self._logger_format()
@@ -43,3 +43,7 @@ class Logger:
     def error(self, msg, *args, **kwargs):
         if self.settings.getboolean("LOG_ENABLED", True):
             self.root.error(msg, *args, **kwargs)
+
+    @classmethod
+    def from_settings(cls, settings):
+        return cls(settings)

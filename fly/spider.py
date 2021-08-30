@@ -32,7 +32,18 @@ except ImportError:
     pass
 
 
-class Spider:
+class Base(type):
+    def __init__(cls, cls_name, bases, cls_dict):
+        # need some seeds
+        super().__init__(cls_name, bases, cls_dict)
+        logger = Logger(name='fly')
+        if (('start_urls' in cls_dict.keys() and not cls_dict['start_urls'] or 'start_urls' not in cls_dict.keys())
+                and 'start_requests' not in cls_dict.keys()):
+            logger.warning("no url in the crawling job...")
+        # return super().__new__(mcs, cls_name, bases, cls_dict)
+
+
+class Spider(metaclass=Base):
     name: Optional[str] = None
     start_urls: Optional[list] = []
 
@@ -48,9 +59,6 @@ class Spider:
             raise ValueError(f"{type(self).__name__} must have a name")
         if not hasattr(self, 'start_urls'):
             self.start_urls = []
-
-        self._failed_count: int = 0
-        self._success_count: int = 0
 
         self.settings = get_settings(self.custom_settings)
         self.logger = Logger(self.settings, self.name)
@@ -71,6 +79,8 @@ class Spider:
             self.middleware_manager.register_middleware(*download_mws)
 
         self._close_spider: bool = False
+        self._failed_count: int = 0
+        self._success_count: int = 0
 
     async def make_request_from_url(self) -> AsyncIterable:
         for url in self.start_urls:
@@ -207,4 +217,3 @@ class Spider:
         await self.cancel_all_tasks()
         self.loop.stop()
         self._close_spider = True
-
