@@ -1,9 +1,11 @@
 import asyncio
+import selectors
 import sys
 import time
 from asyncio import Semaphore
 from types import AsyncGeneratorType
 from typing import Optional, AsyncIterable, Callable, Coroutine
+from inspect import isasyncgenfunction, iscoroutinefunction
 
 import aiohttp
 
@@ -53,7 +55,9 @@ class Spider:
         self.settings = get_settings(self.custom_settings)
         self.logger = Logger(self.settings, self.name)
 
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
+        asyncio.set_event_loop(self.loop)
+
         self.queue = asyncio.PriorityQueue()
         self.semaphore = asyncio.Semaphore(self.settings.getint("CONCURRENT_REQUESTS"))
 
@@ -77,8 +81,8 @@ class Spider:
             yield Request(url, skip_filter=True)
 
     async def enqueue_request(self, request: Request) -> None:
-        self.queue.put_nowait((request.priority, request))
-        # self.loop.call_soon_threadsafe(self.queue.put_nowait, (request.priority, request))
+        # self.queue.put_nowait((request.priority, request))
+        self.loop.call_soon_threadsafe(self.queue.put_nowait, (request.priority, request))
 
     async def has_pending_requests(self) -> bool:
         return self.queue.empty()
@@ -161,12 +165,18 @@ class Spider:
         if hasattr(self, "start_requests"):
             start_requests = getattr(self, 'start_requests')
             if callable(start_requests):
-                if isinstance(start_requests(), AsyncIterable):
-                    async for request in start_requests():
-                        if isinstance(request, Request):
-                            await self.enqueue_request(request)
-                elif isinstance(start_requests(), Request):
-                    await self.enqueue_request(start_requests())
+                if isasyncgenfunction(start_requests):
+                    if isinstance(start_requests(), AsyncIterable):
+                        async for request in start_requests():
+                            if isinstance(request, Request):
+                                await self.enqueue_request(request)
+                else:
+                    if iscoroutinefunction(start_requests):
+                        result = await start_requests()
+                    else:
+                        result = start_requests()
+                    if isinstance(result, Request):
+                        await self.enqueue_request(await start_requests())
 
         while not self._close_spider:
             try:
@@ -197,7 +207,8 @@ class Spider:
             self.logger.debug(f"Time usage: {end - start}")
             self.logger.debug(f"Closing {self.name} (finished)")
 
-            self.loop.close()
+            if not self.loop.is_closed():
+                self.loop.close()
             asyncio.run(self.session.close())
 
     @staticmethod

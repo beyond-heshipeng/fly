@@ -23,7 +23,7 @@ from fly.download_middlewares.user_agent import UserAgentMiddleware
 class TestSpider(Spider):
     name = "Test Spider"
     custom_settings = {
-        "DOWNLOAD_TIMEOUT": 3,
+        "DOWNLOAD_TIMEOUT": 10,
         "DOWNLOAD_MIDDLEWARE": {
             "fly.download_middlewares.user_agent.UserAgentMiddleware": None,
         }
@@ -39,10 +39,9 @@ class TestSpider(Spider):
             'Connection': 'keep-alive',
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; Win64; x64) "
                           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36",
-            'X-Requested-With': 'XMLHttpRequest',
         }
         # for url in start_requests:
-        yield Request(url=start_requests[0], headers=headers, callback=self.callback_test)
+        return Request(url=start_requests[0], headers=headers, callback=self.callback_test)
 
     # start_urls = ["http://www.baidu.com", "http://www.baidu.com"]
 

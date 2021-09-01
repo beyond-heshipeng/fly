@@ -1,10 +1,12 @@
 from w3lib.http import headers_dict_to_raw
-from scrapy.utils.datatypes import CaselessDict
+# from scrapy.utils.datatypes import CaselessDict
+from fly.utils.datatypes import CaseLessDict
+# from scrapy.http.headers import Headers
 
 from fly.utils.python import to_unicode
 
 
-class Headers(CaselessDict):
+class Headers(CaseLessDict):
     """Case insensitive http headers dictionary"""
 
     def __init__(self, seq=None, encoding='utf-8'):
@@ -53,7 +55,7 @@ class Headers(CaselessDict):
             return super().__getitem__(key)
         except KeyError:
             if def_val is not None:
-                return self.normvalue(def_val)
+                return self.norm_value(def_val)
             return []
 
     def setlist(self, key, list_):
@@ -64,7 +66,7 @@ class Headers(CaselessDict):
 
     def appendlist(self, key, value):
         lst = self.getlist(key)
-        lst.extend(self.normvalue(value))
+        lst.extend(self.norm_value(value))
         self[key] = lst
 
     def items(self):
@@ -80,7 +82,7 @@ class Headers(CaselessDict):
         """ Return headers as a Case-less Dict with unicode keys
         and unicode values. Multiple values are joined with ','.
         """
-        return CaselessDict(
+        return CaseLessDict(
             (to_unicode(key, encoding=self.encoding),
              to_unicode(b','.join(value), encoding=self.encoding))
             for key, value in self.items())
