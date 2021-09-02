@@ -130,6 +130,7 @@ class Spider:
 
         if not response:
             async with semaphore:
+                start = time.time()
                 response = await self.downloader.fetch(request=request)
                 if not response:
                     self._failed_count += 1
@@ -150,7 +151,9 @@ class Spider:
         if result and isinstance(result, Response):
             response = result
 
-        self.logger.debug(f"Crawled ({response.status}) <{request.method} {request.url}>")
+        end = time.time()
+
+        self.logger.debug(f"Crawled ({response.status}) <{request.method} {request.url}, cost {end - start}s>")
 
         # call request callback
         if request.callback:

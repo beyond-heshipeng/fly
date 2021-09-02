@@ -43,48 +43,8 @@ from pprint import pformat
 # logging.debug(pformat(ds))
 # print(json.dumps([{'hello': 'there'}, {"111": 222}], indent=4))
 
+import requests
 
-class Base(type):
-    def __new__(mcs, cls_name, bases, cls_dict):
-        print(mcs)
-        print(cls_name)
-        print(bases)
-        print(cls_dict)
-        if 'start_urls' in cls_dict.keys():
-            print(cls_dict.get('start_urls'))
-        return super().__new__(mcs, cls_name, bases, cls_dict)
-
-
-class A(metaclass=Base):
-    start_urls = []
-
-    def enqueue_request(self):
-        pass
-
-
-class B(A):
-    def test(self):
-        self.enqueue_request()
-
-
-# B()
-
-
-class father():
-    def call_children(self):
-        child_method = getattr(self, 'out')
-        # 获取子类的out()方法
-        child_method()
-        # 执行子类的out()方法
-
-    def out(self):
-        print("hehe1")
-
-
-class children(father):
-    def out(self):
-        print("hehe")
-
-
-child = children()
-child.call_children()
+resp = requests.get('http://10.39.203.95:8050/render.html',
+                    params={'url': 'https://36kr.com/search/articles/%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4', 'wait': 25})
+print(resp.text)
