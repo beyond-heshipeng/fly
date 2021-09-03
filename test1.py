@@ -43,8 +43,34 @@ from pprint import pformat
 # logging.debug(pformat(ds))
 # print(json.dumps([{'hello': 'there'}, {"111": 222}], indent=4))
 
-import requests
+# import requests
+#
+# resp = requests.get('http://10.39.203.95:8050/render.html',
+#                     params={'url': 'https://36kr.com/search/articles/%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4', 'wait': 25})
+# print(resp.text)
 
-resp = requests.get('http://10.39.203.95:8050/render.html',
-                    params={'url': 'https://36kr.com/search/articles/%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4', 'wait': 25})
-print(resp.text)
+
+class A:
+    def __init__(self):
+        print("call A() __init__")
+        self.process()
+
+    def process(self):
+        print("call A() process")
+
+    @classmethod
+    def from_settings(cls):
+        print("call ")
+        return cls()
+
+
+class B(A):
+    def process(self):
+        print("call B() process")
+
+    @classmethod
+    def from_crawler(cls):
+        return cls.from_settings()
+
+
+x = B.from_crawler()

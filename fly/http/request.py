@@ -16,15 +16,15 @@ class Request(object):
     executed by the Downloader, thus generating a :class:`Response`.
     """
 
-    __slots__ = (
-        "_url",
-        "_method",
-        "_headers",
-        "_body",
-        "_cookies",
-        "_meta",
-        "_encoding",
-        "_priority",
+    __slot__ = (
+        "url",
+        "method",
+        "headers",
+        "body",
+        "cookies",
+        "meta",
+        "encoding",
+        "priority",
         "skip_filter",
         "callback",
         "error_back",
@@ -49,20 +49,20 @@ class Request(object):
         error_back: Optional[Callable] = None,
         **aiohttp_kwargs,
     ) -> None:
-        self._encoding = encoding
-        self._method = str(method).upper()
-        if self._method not in self.METHOD:
+        self.encoding = encoding
+        self.method = str(method).upper()
+        if self.method not in self.METHOD:
             raise InvalidRequestMethodErr(f"{self.method} method is not supported")
 
         self.ssl = aiohttp_kwargs.pop("ssl", False)
         self.aiohttp_kwargs = aiohttp_kwargs
 
-        self._url = url
         self._set_url(url)
-        self._body = b"" if body is None else to_bytes(body, self._encoding)
+        self._set_body(body)
+        self.body = b"" if body is None else to_bytes(body, self.encoding)
         if not isinstance(priority, int):
             raise TypeError(f"Request priority not an integer: {priority!r}")
-        self._priority = priority
+        self.priority = priority
 
         if callback is not None and not callable(callback):
             raise TypeError(f'callback must be a callable, got {type(callback).__name__}')
@@ -71,65 +71,37 @@ class Request(object):
         self.callback = callback
         self.error_back = error_back
 
-        self._cookies = cookies or {}
-        self._headers = Headers(headers or {})
+        self.cookies = cookies or {}
+        self.headers = Headers(headers or {})
         self.skip_filter = skip_filter
 
-        self._meta = dict(meta) if meta else None
+        self._set_meta(meta)
 
-    @property
-    def meta(self) -> dict:
-        if self._meta is None:
-            self._meta = {}
-        return self._meta
+    def _set_meta(self, meta):
+        if meta is None:
+            self.meta = {}
+            return
 
-    @meta.setter
-    def meta(self, meta: dict):
         if type(meta) is not dict:
             raise TypeError(f"meta must be a dict, got {type(meta).__name__}")
-        self._meta = meta
-
-    @property
-    def priority(self):
-        return self._priority
-
-    @property
-    def url(self) -> str:
-        return self._url
-
-    @property
-    def method(self) -> str:
-        return self._method
-
-    @property
-    def headers(self):
-        return self._headers
+        self.meta = dict(meta)
 
     def _set_url(self, url: str) -> None:
         if not isinstance(url, str):
             raise TypeError(f"Request url must be str, got {type(url).__name__}")
 
-        s = safe_url_string(url, self._encoding)
-        self._url = escape_ajax(s)
+        s = safe_url_string(url, self.encoding)
+        self.url = escape_ajax(s)
 
         if (
-            '://' not in self._url
-            and not self._url.startswith('about:')
-            and not self._url.startswith('data:')
+                '://' not in self.url
+                and not self.url.startswith('about:')
+                and not self.url.startswith('data:')
         ):
-            raise ValueError(f'Missing scheme in request url: {self._url}')
+            raise ValueError(f'Missing scheme in request url: {self.url}')
 
-    @property
-    def body(self) -> bytes:
-        return self._body
-
-    @body.setter
-    def body(self, body) -> None:
-        self._body = b"" if body is None else to_bytes(body, self.encoding)
-
-    @property
-    def encoding(self) -> str:
-        return self._encoding
+    def _set_body(self, body) -> None:
+        self.body = b"" if body is None else to_bytes(body, self.encoding)
 
     def __str__(self) -> str:
         return f"<{self.method} {self.url}>"
@@ -141,7 +113,7 @@ class Request(object):
 
     def replace(self, *args, **kwargs) -> RequestType:
         """Create a new Request with the same attributes except for those given new values"""
-        for x in self.__slots__:
+        for x in self.__slot__:
             kwargs.setdefault(x, getattr(self, x))
         cls = kwargs.pop('cls', self.__class__)
         return cls(*args, **kwargs)

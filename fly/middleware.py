@@ -1,83 +1,33 @@
-import weakref
 from collections import defaultdict, deque
-from inspect import isawaitable
 from typing import Deque, Callable, Dict
-
-from fly.exceptions import InvalidMiddlewareErr
-from fly.http.request import Request
+from fly.settings import Settings
+from fly.utils.misc import load_object, create_instance
 
 
 class MiddlewareManager:
     name = "middleware manager"
 
-    def __init__(self):
+    def __init__(self, *middlewares):
         self.methods: Dict[str, Deque[Callable]] = defaultdict(deque)
-
-    def register_middleware(self, *middlewares):
         for mw in middlewares:
-            if hasattr(mw, 'process_spider_start'):
-                self.methods['process_spider_start'].append(mw.process_spider_start)
-            if hasattr(mw, 'process_spider_stop'):
-                self.methods['process_spider_stop'].appendleft(mw.process_spider_stop)
+            self._register_middleware(mw)
 
-            if hasattr(mw, 'process_request'):
-                self.methods['process_request'].append(mw.process_request)
-            if hasattr(mw, 'process_response'):
-                self.methods['process_response'].append(mw.process_response)
+    def _register_middleware(self, middleware) -> None:
+        if hasattr(middleware, 'process_spider_start'):
+            self.methods['process_spider_start'].append(middleware.process_spider_start)
+        if hasattr(middleware, 'process_spider_stop'):
+            self.methods['process_spider_stop'].appendleft(middleware.process_spider_stop)
 
-    async def process_spider_start(self, spider):
-        """ spider middleware, before spider
+    @classmethod
+    def _get_middleware_list_from_setting(cls, settings: Settings) -> list:
+        raise NotImplementedError
 
-        :return:
-        """
-        for mw in self.methods['process_spider_start']:
-            if callable(mw):
-                try:
-                    func = mw(weakref.proxy(self), spider)
-                    if isawaitable(func):
-                        await func
-                except Exception as e:
-                    raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")
-
-    async def process_spider_stop(self, spider):
-        """ spider middleware, after spider
-
-        :return:
-        """
-        for mw in self.methods['process_spider_finish']:
-            if callable(mw):
-                try:
-                    func = mw(weakref.proxy(self), spider)
-                    if isawaitable(func):
-                        await func
-                except Exception as e:
-                    raise InvalidMiddlewareErr(f"<Spider middleware {mw.__name__}>: {e}")
-
-    async def process_request(self, request: Request, spider):
-        """ download middleware, before request
-
-        :return:
-        """
-        for mw in self.methods['process_request']:
-            if callable(mw):
-                try:
-                    func = mw(weakref.proxy(self), request, spider)
-                    if isawaitable(func):
-                        await func
-                except Exception as e:
-                    raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")
-
-    async def process_response(self, request: Request, spider):
-        """ download middleware, after response
-
-        :return:
-        """
-        for mw in self.methods['process_response']:
-            if callable(mw):
-                try:
-                    func = mw(weakref.proxy(self), request, spider)
-                    if isawaitable(func):
-                        await func
-                except Exception as e:
-                    raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")
-
+    @classmethod
+    def from_settings(cls, settings: Settings):
+        middleware_list = cls._get_middleware_list_from_setting(settings)
+        middlewares = []
+        for middleware in middleware_list:
+            middleware_cls = load_object(middleware)
+            mw = create_instance(middleware_cls, settings)
+            middlewares.append(mw)
+        return cls(*middlewares)

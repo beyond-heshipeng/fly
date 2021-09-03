@@ -83,6 +83,10 @@ class Settings(Mapping):
         value = self.get(name, default or {})
         if isinstance(value, str):
             value = json.loads(value)
+
+        if (t := type(value)) != dict:
+            raise ValueError(f"Expected type dict, actually got type {t}")
+
         return dict(value)
 
     def __setitem__(self, name, value):

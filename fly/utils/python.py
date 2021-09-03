@@ -22,3 +22,15 @@ def to_bytes(text, encoding=None, errors='strict'):
     if encoding is None:
         encoding = 'utf-8'
     return text.encode(encoding, errors)
+
+
+def without_none_values(iterable):
+    """Return a copy of ``iterable`` with all ``None`` entries removed.
+
+    If ``iterable`` is a mapping, return a dictionary where all pairs that have
+    value ``None`` have been removed.
+    """
+    try:
+        return {k: v for k, v in iterable.items() if v is not None}
+    except AttributeError:
+        return type(iterable)((v for v in iterable if v is not None))

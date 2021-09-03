@@ -20,18 +20,30 @@ from fly.download_middlewares.user_agent import UserAgentMiddleware
     # pass
 
 
+class RetryMiddleware:
+    def __init__(self):
+        print("__init__ retry middleware")
+
+    def process_response(self, request, response, spider):
+        print("call retry middleware process response")
+        pass
+
+
 class TestSpider(Spider):
     name = "Test Spider"
     custom_settings = {
-        "DOWNLOAD_TIMEOUT": 10,
-        "DOWNLOAD_MIDDLEWARE": {
-            "fly.download_middlewares.user_agent.UserAgentMiddleware": None,
+        "DOWNLOAD_TIMEOUT": 2,
+        "DOWNLOADER_MIDDLEWARES": {
+            "fly.download_middlewares.retry.RetryMiddleware": 1,
         }
+        # "DOWNLOAD_MIDDLEWARE": {
+        #     "fly.download_middlewares.user_agent.UserAgentMiddleware": None,
+        # }
         # "SPIDER_MIDDLEWARE": [TestMiddleware]
     }
 
     async def start_requests(self):
-        start_requests = ["https://www.python.org/"] * 5
+        start_requests = ["https://www.p12wqwython.org/"] * 5
         headers = {
             'Accept': 'application/json, text/javascript, */*; q=0.01',
             'Accept-Encoding': 'gzip, deflate',
@@ -39,6 +51,7 @@ class TestSpider(Spider):
             'Connection': 'keep-alive',
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; Win64; x64) "
                           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36",
+            'X-Requested-With': 'XMLHttpRequest',
         }
         # for url in start_requests:
         return Request(url=start_requests[0], headers=headers, callback=self.callback_test)

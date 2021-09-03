@@ -14,7 +14,7 @@ from fly.exceptions import QueueEmptyErr
 from fly.settings import Settings
 from fly.http.request import Request
 from fly.http.response import Response
-from fly.middleware import MiddlewareManager
+from fly.download_middlewares import DownloadMiddlewareManager
 from fly.utils.log import Logger
 from fly.utils.settings import get_settings
 
@@ -52,7 +52,12 @@ class Spider:
         if not hasattr(self, 'start_urls'):
             self.start_urls = []
 
-        self.settings = get_settings(self.custom_settings)
+        if hasattr(self, "custom_settings"):
+            custom_settings = getattr(self, "custom_settings")
+        else:
+            custom_settings = self.custom_settings
+        self.settings = get_settings(custom_settings)
+
         self.logger = Logger(self.settings, self.name)
 
         self.loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
@@ -61,16 +66,10 @@ class Spider:
         self.queue = asyncio.PriorityQueue()
         self.semaphore = asyncio.Semaphore(self.settings.getint("CONCURRENT_REQUESTS"))
 
+        self.downloader_middleware = DownloadMiddlewareManager.from_settings(self.settings)
+
         self.session = aiohttp.ClientSession()
         self.downloader = Downloader(self.settings, self.session)
-
-        self.middleware_manager = MiddlewareManager()
-        # register spider middleware
-        if spider_mws := self.settings.getlist("SPIDER_MIDDLEWARE", []):
-            self.middleware_manager.register_middleware(*spider_mws)
-        # register download middleware
-        if download_mws := self.settings.getlist("DOWNLOAD_MIDDLEWARE", []):
-            self.middleware_manager.register_middleware(*download_mws)
 
         self._close_spider: bool = False
         self._failed_count: int = 0
@@ -121,7 +120,7 @@ class Spider:
         response = None
 
         # downloader middleware process request first.
-        result = await self.middleware_manager.process_request(request, spider=self)
+        result = await self.downloader_middleware.process_request(request, spider=self)
 
         if result and isinstance(result, Request):
             request = result
@@ -131,21 +130,30 @@ class Spider:
         if not response:
             async with semaphore:
                 start = time.time()
-                response = await self.downloader.fetch(request=request)
+                response, exception = await self.downloader.fetch(request=request)
                 if not response:
                     self._failed_count += 1
-                    return
+                    result = await self.downloader_middleware.process_exception(
+                        request, exception=exception, spider=self
+                    )
 
-                if self.allowed_status and result.status not in self.allowed_status:
-                    self._failed_count += 1
+                    if not result:
+                        return
+
                 else:
-                    self._success_count += 1
+                    if self.allowed_status and result.status not in self.allowed_status:
+                        self._failed_count += 1
+                    else:
+                        self._success_count += 1
 
-        # downloader middleware process response
-        result = await self.middleware_manager.process_response(result, spider=self)
+                    # downloader middleware process response
+                    result = await self.downloader_middleware.process_response(request, response, spider=self)
+        else:
+            # downloader middleware process response
+            result = await self.downloader_middleware.process_response(request, response, spider=self)
 
         if result and isinstance(result, Request):
-            await self.enqueue_request(request)
+            await self.enqueue_request(result)
             return
 
         if result and isinstance(result, Response):
@@ -194,12 +202,12 @@ class Spider:
         start = time.time()
 
         try:
-            asyncio.run(self.middleware_manager.process_spider_start(self))
+            # asyncio.run(self.middleware_manager.process_spider_start(self))
 
             self.loop.run_until_complete(self._run())
             self.loop.run_until_complete(self.loop.shutdown_asyncgens())
         except KeyboardInterrupt:
-            asyncio.run(self.middleware_manager.process_spider_stop(self))
+            # asyncio.run(self.middleware_manager.process_spider_stop(self))
             asyncio.run(self._stop())
         finally:
             end = time.time()
