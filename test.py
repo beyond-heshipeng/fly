@@ -32,10 +32,12 @@ class RetryMiddleware:
 class TestSpider(Spider):
     name = "Test Spider"
     custom_settings = {
-        "DOWNLOAD_TIMEOUT": 2,
+        "DOWNLOAD_TIMEOUT": 5,
         "DOWNLOADER_MIDDLEWARES": {
-            "fly.download_middlewares.retry.RetryMiddleware": 1,
-        }
+            "fly.download_middlewares.retry.RetryMiddleware": 200,
+            "fly.download_middlewares.test.TestMiddleware": 100
+        },
+        # "RETRY_HTTP_CODES": [200],
         # "DOWNLOAD_MIDDLEWARE": {
         #     "fly.download_middlewares.user_agent.UserAgentMiddleware": None,
         # }
@@ -43,7 +45,7 @@ class TestSpider(Spider):
     }
 
     async def start_requests(self):
-        start_requests = ["https://www.p12wqwython.org/"] * 5
+        start_requests = ["https://www.python.org/"]
         headers = {
             'Accept': 'application/json, text/javascript, */*; q=0.01',
             'Accept-Encoding': 'gzip, deflate',
@@ -51,7 +53,7 @@ class TestSpider(Spider):
             'Connection': 'keep-alive',
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; Win64; x64) "
                           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36",
-            'X-Requested-With': 'XMLHttpRequest',
+            # 'X-Requested-With': 'XMLHttpRequest',
         }
         # for url in start_requests:
         return Request(url=start_requests[0], headers=headers, callback=self.callback_test)
@@ -59,7 +61,7 @@ class TestSpider(Spider):
     # start_urls = ["http://www.baidu.com", "http://www.baidu.com"]
 
     async def callback_test(self, response: Response):
-        print(response.body)
+        # print(response.body)
         print(re.findall(r"/blog/page/\d+/", response.body.decode()))
         for path in re.findall(r"/blog/page/\d+/", response.body.decode()):
             url = urljoin(response.url, path)

@@ -26,7 +26,7 @@ LOG_FORMAT = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_STDOUT = False
 LOG_LEVEL = 'DEBUG'
-LOG_FILE = None
+LOG_FILE = 'test.log'
 LOG_SHORT_NAMES = False
 
 # retry

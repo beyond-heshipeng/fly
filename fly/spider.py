@@ -1,13 +1,16 @@
 import asyncio
-import selectors
+import os
 import sys
 import time
+from signal import SIGINT, SIGTERM
 from asyncio import Semaphore
 from types import AsyncGeneratorType
 from typing import Optional, AsyncIterable, Callable, Coroutine
 from inspect import isasyncgenfunction, iscoroutinefunction
 
+
 import aiohttp
+from rich.console import Console
 
 from fly.downloader import Downloader
 from fly.exceptions import QueueEmptyErr
@@ -19,7 +22,7 @@ from fly.utils.log import Logger
 from fly.utils.settings import get_settings
 
 if sys.version_info >= (3, 8) and sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 if sys.version_info >= (3, 9):
     async_all_tasks = asyncio.all_tasks
@@ -33,6 +36,9 @@ try:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 except ImportError:
     pass
+
+
+_console = Console()
 
 
 class Spider:
@@ -60,13 +66,16 @@ class Spider:
 
         self.logger = Logger(self.settings, self.name)
 
-        self.loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
+        if os.name == 'nt':
+            self.loop = asyncio.ProactorEventLoop()
+        else:
+            self.loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self.loop)
 
         self.queue = asyncio.PriorityQueue()
         self.semaphore = asyncio.Semaphore(self.settings.getint("CONCURRENT_REQUESTS"))
 
-        self.downloader_middleware = DownloadMiddlewareManager.from_settings(self.settings)
+        self.downloader_middleware = DownloadMiddlewareManager.from_spider(self)
 
         self.session = aiohttp.ClientSession()
         self.downloader = Downloader(self.settings, self.session)
@@ -203,9 +212,8 @@ class Spider:
 
         try:
             # asyncio.run(self.middleware_manager.process_spider_start(self))
-
             self.loop.run_until_complete(self._run())
-            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
+            # self.loop.run_until_complete(self.loop.shutdown_asyncgens())
         except KeyboardInterrupt:
             # asyncio.run(self.middleware_manager.process_spider_stop(self))
             asyncio.run(self._stop())
@@ -241,7 +249,9 @@ class Spider:
         Finish all running tasks, cancel remaining tasks.
         :return:
         """
+        self.loop = asyncio.new_event_loop()
         self.logger.debug(f"Stopping {self.name} ...")
         await self.cancel_all_tasks()
-        self.loop.stop()
+        if not self.loop.is_closed():
+            self.loop.stop()
         self._close_spider = True

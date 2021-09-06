@@ -145,4 +145,5 @@ class Settings(Mapping):
         return len(self.attributes)
 
     def __str__(self):
-        return _pformat(self.attributes)
+        return str(self.attributes)
+        # return _pformat(self.attributes)

@@ -81,7 +81,9 @@ class DownloadMiddlewareManager(MiddlewareManager):
                 try:
                     func = mw(request, response, spider)
                     if isawaitable(func):
-                        await func
+                        return await func
+                    else:
+                        return func
                 except Exception as e:
                     raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")
 

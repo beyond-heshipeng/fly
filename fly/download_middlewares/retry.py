@@ -7,7 +7,6 @@ from asyncio import TimeoutError
 from aiohttp import ClientTimeout, ClientOSError, ClientConnectorError, ClientSSLError
 
 from fly.http.response import Response
-from fly.settings import Settings
 
 from fly.http.request import Request
 from fly.spider import Spider
@@ -27,9 +26,14 @@ async def get_retry_request(
     settings = spider.settings
     retry_times = request.meta.get('current_retry_times', 0) + 1
     if retry_times <= max_retry_times:
-        spider.logger.debug(
-            f"Retrying {request} (failed {retry_times} times): {reason.__name__}"
-        )
+        if reason:
+            spider.logger.debug(
+                f"Retrying {request} (failed {retry_times} times): {reason.__name__}"
+            )
+        else:
+            spider.logger.debug(
+                f"Retrying {request} (failed {retry_times} times)"
+            )
         new_request: Request = request.copy()
         new_request.meta['current_retry_times'] = retry_times
         new_request.skip_filter = True
@@ -39,26 +43,32 @@ async def get_retry_request(
 
         return new_request
     else:
-        spider.logger.error(
-            f"Gave up retrying {request} (failed {retry_times} times): {reason.__name__}",
-        )
+        if reason:
+            spider.logger.error(
+                f"Gave up retrying {request} (failed {retry_times} times): {reason.__name__}",
+            )
+        else:
+            spider.logger.error(
+                f"Gave up retrying {request} (failed {retry_times} times)"
+            )
         return None
 
 
 class RetryMiddleware:
+    name = "retry middleware"
     # IOError is raised by the HttpCompression middleware when trying to
     # decompress an empty response
     EXCEPTIONS_TO_RETRY = (TimeoutError, ConnectionRefusedError, ClientTimeout, ClientOSError,
                            ClientConnectorError, ClientSSLError, IOError)
 
-    def __init__(self, settings: Settings):
-        self.enable_retry = settings.getboolean("ENABLE_RETRY", True)
-        self.max_retry_times = settings.getint('RETRY_TIMES', 2)
-        self.retry_http_codes = set(int(x) for x in settings.getlist('RETRY_HTTP_CODES'))
-        self.priority_adjust = settings.getint('RETRY_PRIORITY_ADJUST', -1)
+    def __init__(self, spider: Spider):
+        self.enable_retry = spider.settings.getboolean("ENABLE_RETRY", True)
+        self.max_retry_times = spider.settings.getint('RETRY_TIMES', 2)
+        self.retry_http_codes = set(int(x) for x in spider.settings.getlist('RETRY_HTTP_CODES'))
+        self.priority_adjust = spider.settings.getint('RETRY_PRIORITY_ADJUST', -1)
 
     def adjust_settings(self, request: Request) -> None:
-        if "ENABLE_RETRY" in request.meta.keys() and type( request.meta["ENABLE_RETRY"]) is bool:
+        if "ENABLE_RETRY" in request.meta.keys() and type(request.meta["ENABLE_RETRY"]) is bool:
             self.enable_retry = request.meta["ENABLE_RETRY"]
         if "RETRY_TIMES" in request.meta.keys() and type(request.meta["RETRY_TIMES"]) is int:
             self.max_retry_times = request.meta["RETRY_TIMES"]
@@ -68,8 +78,8 @@ class RetryMiddleware:
             self.priority_adjust = request.meta["RETRY_PRIORITY_ADJUST"]
 
     @classmethod
-    def from_settings(cls, settings):
-        return cls(settings)
+    def from_spider(cls, spider):
+        return cls(spider)
 
     async def process_response(self, request: Request, response: Response, spider: Spider):
         self.adjust_settings(request)
@@ -77,8 +87,9 @@ class RetryMiddleware:
         if not self.enable_retry:
             return response
         if response.status in self.retry_http_codes:
-            return self._retry(request, spider) or response
-        return response
+            return await self._retry(request, spider) or response
+
+        return
 
     async def process_exception(self, request, spider, exception):
         self.adjust_settings(request)

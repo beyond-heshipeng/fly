@@ -1,7 +1,10 @@
 from collections import defaultdict, deque
-from typing import Deque, Callable, Dict
+from typing import Deque, Callable, Dict, TypeVar
 from fly.settings import Settings
 from fly.utils.misc import load_object, create_instance
+
+
+SpiderType = TypeVar("SpiderType", bound="Spider")
 
 
 class MiddlewareManager:
@@ -23,11 +26,11 @@ class MiddlewareManager:
         raise NotImplementedError
 
     @classmethod
-    def from_settings(cls, settings: Settings):
-        middleware_list = cls._get_middleware_list_from_setting(settings)
+    def from_spider(cls, spider: SpiderType):
+        middleware_list = cls._get_middleware_list_from_setting(spider.settings)
         middlewares = []
         for middleware in middleware_list:
             middleware_cls = load_object(middleware)
-            mw = create_instance(middleware_cls, settings)
+            mw = create_instance(middleware_cls, spider)
             middlewares.append(mw)
         return cls(*middlewares)
