@@ -1,5 +1,5 @@
 import weakref
-from inspect import isawaitable
+from inspect import isawaitable, iscoroutinefunction
 
 from fly.exceptions import InvalidMiddlewareErr
 from fly.http.request import Request
@@ -65,9 +65,9 @@ class DownloadMiddlewareManager(MiddlewareManager):
         for mw in self.methods['process_request']:
             if callable(mw):
                 try:
-                    func = mw(request, spider)
-                    if isawaitable(func):
-                        await func
+                    if iscoroutinefunction(mw):
+                        return await mw(request, spider)
+                    return mw(request, spider)
                 except Exception as e:
                     raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")
 
@@ -79,11 +79,9 @@ class DownloadMiddlewareManager(MiddlewareManager):
         for mw in self.methods['process_response']:
             if callable(mw):
                 try:
-                    func = mw(request, response, spider)
-                    if isawaitable(func):
-                        return await func
-                    else:
-                        return func
+                    if iscoroutinefunction(mw):
+                        return await mw(request, response, spider)
+                    return mw(request, response, spider)
                 except Exception as e:
                     raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")
 
@@ -95,10 +93,8 @@ class DownloadMiddlewareManager(MiddlewareManager):
         for mw in self.methods['process_exception']:
             if callable(mw):
                 try:
-                    func = mw(request=request, exception=exception, spider=spider)
-                    if isawaitable(func):
-                        return await func
-                    else:
-                        return func
+                    if iscoroutinefunction(mw):
+                        return await mw(request=request, exception=exception, spider=spider)
+                    return mw(request=request, exception=exception, spider=spider)
                 except Exception as e:
                     raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")

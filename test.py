@@ -32,10 +32,8 @@ class RetryMiddleware:
 class TestSpider(Spider):
     name = "Test Spider"
     custom_settings = {
-        "DOWNLOAD_TIMEOUT": 5,
+        "DOWNLOAD_TIMEOUT": 1,
         "DOWNLOADER_MIDDLEWARES": {
-            "fly.download_middlewares.retry.RetryMiddleware": 200,
-            "fly.download_middlewares.test.TestMiddleware": 100
         },
         # "RETRY_HTTP_CODES": [200],
         # "DOWNLOAD_MIDDLEWARE": {
@@ -45,14 +43,14 @@ class TestSpider(Spider):
     }
 
     async def start_requests(self):
-        start_requests = ["https://www.python.org/"]
+        start_requests = ["https://www.python123.org/"]
         headers = {
             'Accept': 'application/json, text/javascript, */*; q=0.01',
             'Accept-Encoding': 'gzip, deflate',
             'Accept-Language': 'zh-CN,zh;q=0.9',
             'Connection': 'keep-alive',
-            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; Win64; x64) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36",
+            # 'User-Agent': "Mozilla/5.0 (Windows NT 6.1; Win64; x64) "
+            #               "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36",
             # 'X-Requested-With': 'XMLHttpRequest',
         }
         # for url in start_requests:

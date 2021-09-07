@@ -2,17 +2,12 @@ import asyncio
 import os
 import sys
 import time
-from signal import SIGINT, SIGTERM
-from asyncio import Semaphore
+from asyncio import Semaphore, CancelledError
 from types import AsyncGeneratorType
 from typing import Optional, AsyncIterable, Callable, Coroutine
 from inspect import isasyncgenfunction, iscoroutinefunction
 
-
-import aiohttp
-from rich.console import Console
-
-from fly.downloader import Downloader
+from fly.downloader import DownloaderManager
 from fly.exceptions import QueueEmptyErr
 from fly.settings import Settings
 from fly.http.request import Request
@@ -36,9 +31,6 @@ try:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 except ImportError:
     pass
-
-
-_console = Console()
 
 
 class Spider:
@@ -75,10 +67,8 @@ class Spider:
         self.queue = asyncio.PriorityQueue()
         self.semaphore = asyncio.Semaphore(self.settings.getint("CONCURRENT_REQUESTS"))
 
+        self.downloader_manager = DownloaderManager.from_spider(self)
         self.downloader_middleware = DownloadMiddlewareManager.from_spider(self)
-
-        self.session = aiohttp.ClientSession()
-        self.downloader = Downloader(self.settings, self.session)
 
         self._close_spider: bool = False
         self._failed_count: int = 0
@@ -139,7 +129,7 @@ class Spider:
         if not response:
             async with semaphore:
                 start = time.time()
-                response, exception = await self.downloader.fetch(request=request)
+                response, exception = await self.downloader_manager.fetch(request=request)
                 if not response:
                     self._failed_count += 1
                     result = await self.downloader_middleware.process_exception(
@@ -156,10 +146,14 @@ class Spider:
                         self._success_count += 1
 
                     # downloader middleware process response
-                    result = await self.downloader_middleware.process_response(request, response, spider=self)
+                    result = await self.downloader_middleware.process_response(
+                        request, response, spider=self
+                    )
         else:
             # downloader middleware process response
-            result = await self.downloader_middleware.process_response(request, response, spider=self)
+            result = await self.downloader_middleware.process_response(
+                request, response, spider=self
+            )
 
         if result and isinstance(result, Request):
             await self.enqueue_request(result)
@@ -170,13 +164,16 @@ class Spider:
 
         end = time.time()
 
-        self.logger.debug(f"Crawled ({response.status}) <{request.method} {request.url}, cost {end - start}s>")
+        self.logger.info(f"Crawled ({response.status}) <{request.method}"
+                          f" {request.url}, cost {end - start}s>")
 
         # call request callback
         if request.callback:
             await self._handle_request_callback(request.callback, response)
 
     async def _run(self):
+        await self.downloader_manager.open()
+
         # url from start_urls
         async for request in self.make_request_from_url():
             await self.enqueue_request(request)
@@ -206,8 +203,8 @@ class Spider:
                 await asyncio.sleep(0.00001)
 
     def fly(self):
-        self.logger.debug(f"{self.name} started")
-        self.logger.debug(f"Overridden settings: {Settings(self.custom_settings)}")
+        self.logger.info(f"{self.name} started")
+        self.logger.info(f"Overridden settings: {Settings(self.custom_settings)}")
         start = time.time()
 
         try:
@@ -217,32 +214,34 @@ class Spider:
         except KeyboardInterrupt:
             # asyncio.run(self.middleware_manager.process_spider_stop(self))
             asyncio.run(self._stop())
+            self.loop.run_forever()
         finally:
             end = time.time()
 
-            self.logger.debug(f"Success count: {self._success_count}")
-            self.logger.debug(f"Failure count: {self._failed_count}")
-            self.logger.debug(f"Total count: {self._success_count + self._failed_count}")
-            self.logger.debug(f"Time usage: {end - start}")
-            self.logger.debug(f"Closing {self.name} (finished)")
+            self.logger.info(f"Success count: {self._success_count}")
+            self.logger.info(f"Failure count: {self._failed_count}")
+            self.logger.info(f"Total count: {self._success_count + self._failed_count}")
+            self.logger.info(f"Time usage: {end - start}")
+            self.logger.info(f"Closing {self.name} (finished)")
 
             if not self.loop.is_closed():
                 self.loop.close()
-            asyncio.run(self.session.close())
 
-    @staticmethod
-    async def cancel_all_tasks():
+    async def cancel_all_tasks(self):
         """
         Cancel all tasks
         :return:
 
         """
-        tasks = []
-        for task in async_all_tasks():
-            if task is not async_current_task():
-                tasks.append(task)
-                task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            tasks = []
+            for task in async_all_tasks():
+                if task is not async_current_task():
+                    tasks.append(task)
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        except CancelledError as err:
+            self.logger.error(err)
 
     async def _stop(self):
         """
@@ -250,8 +249,9 @@ class Spider:
         :return:
         """
         self.loop = asyncio.new_event_loop()
-        self.logger.debug(f"Stopping {self.name} ...")
+        self.logger.info(f"Stopping {self.name} ...")
+        await self.downloader_manager.close()
+        self._close_spider = True
         await self.cancel_all_tasks()
         if not self.loop.is_closed():
             self.loop.stop()
-        self._close_spider = True

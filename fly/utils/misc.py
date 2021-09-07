@@ -1,7 +1,5 @@
 from importlib import import_module
-from typing import Union, TypeVar
-
-from fly.settings import Settings
+from typing import TypeVar
 
 
 SpiderType = TypeVar("SpiderType", bound="Spider")
@@ -36,13 +34,13 @@ def load_object(path):
     return obj
 
 
-def create_instance(obj_cls, obj: Union[Settings, SpiderType], *args, **kwargs):
+def create_instance(obj_cls, spider: SpiderType, *args, **kwargs):
     """Construct a class instance
     """
     if hasattr(obj_cls, 'from_spider'):
-        instance = obj_cls.from_spider(obj, *args, **kwargs)
+        instance = obj_cls.from_spider(spider, *args, **kwargs)
     elif hasattr(obj_cls, 'from_settings'):
-        instance = obj_cls.from_settings(obj, *args, **kwargs)
+        instance = obj_cls.from_settings(spider.settings, *args, **kwargs)
     else:
         instance = obj_cls(*args, **kwargs)
     if instance is None:

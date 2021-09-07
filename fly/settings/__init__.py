@@ -1,7 +1,6 @@
 import copy
 import json
 from collections import Mapping
-from fly.utils.display import _pformat
 
 
 class Settings(Mapping):

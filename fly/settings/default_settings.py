@@ -16,8 +16,12 @@ DOWNLOAD_DELAY = 0
 RANDOMIZE_DOWNLOAD_DELAY = False
 # 1min
 DOWNLOAD_TIMEOUT = 60
-DOWNLOADER = 'fly.downloader.Downloader'
-DOWNLOADER_MIDDLEWARES = {}
+# DOWNLOADER = 'fly.downloader.aiohttp_downloader.AiohttpDownloader'
+DOWNLOADER = 'fly.downloader.pyppeteer_downloader.PyppeteerDownloader'
+DOWNLOADER_MIDDLEWARES = {
+    "fly.download_middlewares.user_agent.UserAgentMiddleware": 10000,
+    "fly.download_middlewares.retry.RetryMiddleware": 10001,
+}
 
 # log
 LOG_ENABLED = True
@@ -25,8 +29,8 @@ LOG_ENCODING = 'utf-8'
 LOG_FORMAT = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_STDOUT = False
-LOG_LEVEL = 'DEBUG'
-LOG_FILE = 'test.log'
+LOG_LEVEL = 'INFO'
+LOG_FILE = None
 LOG_SHORT_NAMES = False
 
 # retry

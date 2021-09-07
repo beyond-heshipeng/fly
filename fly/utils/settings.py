@@ -1,5 +1,6 @@
 from fly.settings import Settings
 from fly.settings import default_settings
+from fly.utils.python import without_none_values, without_empty_values
 
 
 def get_settings(settings: dict = None):
@@ -10,6 +11,6 @@ def get_settings(settings: dict = None):
             items[var] = eval(f"default_settings.{var}")
 
     if settings:
-        return Settings(items | settings)
+        return Settings(items | without_empty_values(without_none_values(settings)))
 
     return Settings(items)

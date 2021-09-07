@@ -40,6 +40,15 @@ def without_none_values(iterable):
         return type(iterable)((v for v in iterable if v is not None))
 
 
+def without_empty_values(iterable):
+    """Return a copy of ``iterable`` with all ``empty`` entries removed.
+    """
+    try:
+        return {k: v for k, v in iterable.items() if (hasattr(v, "__len__") and len(v) > 0) or not hasattr(v, "__len__")}
+    except AttributeError:
+        return type(iterable)((v for v in iterable if (hasattr(v, "__len__") and len(v) > 0) or not hasattr(v, "__len__")))
+
+
 class Defer:
     """
     Proof of concept for a python equivalent of golang's defer statement
@@ -59,12 +68,3 @@ class Defer:
 
     def __del__(self):
         self.callback(*self.args, **self.kwargs)
-
-
-# def defer(func):
-#     @wraps(func)
-#     def func_wrapper(*args, **kwargs):
-#         with ExitStack() as stack:
-#             stack.callback(partial(func, args, kwargs))
-#
-#     return func_wrapper

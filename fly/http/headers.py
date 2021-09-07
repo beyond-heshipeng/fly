@@ -1,8 +1,6 @@
 from w3lib.http import headers_dict_to_raw
-# from scrapy.utils.datatypes import CaselessDict
-from fly.utils.datatypes import CaseLessDict
-# from scrapy.http.headers import Headers
 
+from fly.utils.datatypes import CaseLessDict
 from fly.utils.python import to_unicode
 
 

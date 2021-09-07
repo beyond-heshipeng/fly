@@ -5,9 +5,9 @@ problems such as a connection timeout or HTTP 500 error.
 from typing import Union
 from asyncio import TimeoutError
 from aiohttp import ClientTimeout, ClientOSError, ClientConnectorError, ClientSSLError
+from pyppeteer.errors import PageError
 
 from fly.http.response import Response
-
 from fly.http.request import Request
 from fly.spider import Spider
 
@@ -27,11 +27,11 @@ async def get_retry_request(
     retry_times = request.meta.get('current_retry_times', 0) + 1
     if retry_times <= max_retry_times:
         if reason:
-            spider.logger.debug(
+            spider.logger.info(
                 f"Retrying {request} (failed {retry_times} times): {reason.__name__}"
             )
         else:
-            spider.logger.debug(
+            spider.logger.info(
                 f"Retrying {request} (failed {retry_times} times)"
             )
         new_request: Request = request.copy()
@@ -59,7 +59,7 @@ class RetryMiddleware:
     # IOError is raised by the HttpCompression middleware when trying to
     # decompress an empty response
     EXCEPTIONS_TO_RETRY = (TimeoutError, ConnectionRefusedError, ClientTimeout, ClientOSError,
-                           ClientConnectorError, ClientSSLError, IOError)
+                           ClientConnectorError, ClientSSLError, IOError, PageError)
 
     def __init__(self, spider: Spider):
         self.enable_retry = spider.settings.getboolean("ENABLE_RETRY", True)

@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from typing import Any
 
 
 class CaseLessDict(dict):
@@ -43,10 +44,10 @@ class CaseLessDict(dict):
     def setdefault(self, key, def_val=None):
         return dict.setdefault(self, self.norm_key(key), self.norm_value(def_val))
 
-    def update(self, seq):
+    def update(self, seq: Any) -> None:
         seq = seq.items() if isinstance(seq, Mapping) else seq
-        iseq = ((self.norm_key(k), self.norm_value(v)) for k, v in seq)
-        super().update(iseq)
+        is_eq = ((self.norm_key(k), self.norm_value(v)) for k, v in seq)
+        super().update(is_eq)
 
     @classmethod
     def fromkeys(cls, keys, value=None):
