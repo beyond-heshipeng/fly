@@ -1,6 +1,6 @@
 import asyncio
 
-from pyppeteer import launch
+from pyppeteer.launcher import Launcher
 from pyppeteer.errors import PageError
 
 from fly import Request, Response, Settings
@@ -21,13 +21,23 @@ class PyppeteerDownloader:
         self.page = None
 
     async def open(self):
-        self.browser = await launch(headless=self.settings.getboolean("HEADLESS"),
-                                    userDataDir=self.settings.get("USER_DATA_DIR", "./cache"),
-                                    options={'args': ['--no-sandbox', '--disable-infobars'], 'autoClose': False},
-                                    loop=self.spider.loop)
+        pass
+        # self.browser = await launch(headless=self.settings.getboolean("HEADLESS"),
+        #                             autoClose=False,
+        #                             userDataDir=self.settings.get("USER_DATA_DIR", "./cache"),
+        #                             options={'args': ['--disable-infobars']},
+        #                             loop=self.spider.loop)
 
     async def fetch(self, request: Request) -> (Response, Exception):
-        page = await self.browser.newPage()
+        # self._browser = syncer.sync(pyppeteer.launch())
+        # self._page = syncer.sync(self._browser.pages())[0]  # about:blank page
+        launch = Launcher(headless=self.settings.getboolean("HEADLESS"),
+                          userDataDir=self.settings.get("USER_DATA_DIR", "./cache"),
+                          options={'args': ['--no-sandbox', '--disable-infobars'], 'autoClose': False,
+                                   'loop': self.spider.loop},
+                          loop=self.spider.loop)
+        browser = await launch.launch()
+        page = await browser.newPage()
         try:
             options = {"timeout": self.spider.settings.getint("DOWNLOAD_TIMEOUT") * 1000}
             resp = await page.goto(request.url, options=options)
@@ -45,6 +55,11 @@ class PyppeteerDownloader:
             return None, PageError
         finally:
             await page.close()
+            # self.spider.loop.run_until_complete(launch.killChrome())
+            # await launch.killChrome()
+            launch.waitForChromeToClose()
+            # await browser.close()
 
     async def close(self):
-        await self.browser.close()
+        pass
+        # await self.browser.close()

@@ -220,6 +220,7 @@ class Spider:
         except KeyboardInterrupt:
             # asyncio.run(self.middleware_manager.process_spider_stop(self))
             asyncio.run(self._stop())
+            self.loop.run_forever()
         finally:
             end = time.time()
 

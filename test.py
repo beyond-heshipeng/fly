@@ -1,45 +1,14 @@
-import asyncio
 import re
-import signal
 from urllib.parse import urljoin
 
 from fly.http.response import Response
 from fly.spider import Spider, Request
-from fly.download_middlewares.user_agent import UserAgentMiddleware
-# from fly.spidermw import MiddlewareManager
-
-
-# class TestMiddleware(SpiderMiddleware):
-    # name = "test_middleware"
-
-    # def __str__(self):
-    #     return self.name
-    #
-    # def __repr__(self):
-    #     return self.name
-    # pass
-
-
-class RetryMiddleware:
-    def __init__(self):
-        print("__init__ retry middleware")
-
-    def process_response(self, request, response, spider):
-        print("call retry middleware process response")
-        pass
 
 
 class TestSpider(Spider):
     name = "Test Spider"
     custom_settings = {
         "DOWNLOAD_TIMEOUT": 20,
-        "DOWNLOADER_MIDDLEWARES": {
-        },
-        # "RETRY_HTTP_CODES": [200],
-        # "DOWNLOAD_MIDDLEWARE": {
-        #     "fly.download_middlewares.user_agent.UserAgentMiddleware": None,
-        # }
-        # "SPIDER_MIDDLEWARE": [TestMiddleware]
     }
 
     async def start_requests(self):

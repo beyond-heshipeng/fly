@@ -50,27 +50,17 @@ from pprint import pformat
 # print(resp.text)
 
 
-class A:
-    def __init__(self):
-        print("call A() __init__")
-        self.process()
-
-    def process(self):
-        print("call A() process")
-
-    @classmethod
-    def from_settings(cls):
-        print("call ")
-        return cls()
-
-
-class B(A):
-    def process(self):
-        print("call B() process")
-
-    @classmethod
-    def from_crawler(cls):
-        return cls.from_settings()
-
-
-x = B.from_crawler()
+# import asyncio
+# from pyppeteer import launch
+#
+#
+# async def main():
+#     browser = await launch()
+#     page = await browser.newPage()
+#     await page.goto('https://wenku.baidu.com')
+#     await page.screenshot({'path': 'example.png'})
+#     await browser.close()
+#
+# asyncio.get_event_loop().run_until_complete(main())
+#
+#
