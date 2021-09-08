@@ -3,8 +3,7 @@ import asyncio
 from pyppeteer import launch
 from pyppeteer.errors import PageError
 
-from fly.http.request import Request
-from fly.http.response import Response
+from fly import Request, Response, Settings
 
 try:
     import uvloop
@@ -17,17 +16,21 @@ except ImportError:
 class PyppeteerDownloader:
     def __init__(self, spider):
         self.spider = spider
+        self.settings: Settings = spider.settings
         self.browser = None
         self.page = None
 
     async def open(self):
-        self.browser = await launch(headless=False)
-        self.page = await self.browser.newPage()
+        self.browser = await launch(headless=self.settings.getboolean("HEADLESS"),
+                                    userDataDir=self.settings.get("USER_DATA_DIR", "./cache"),
+                                    options={'args': ['--no-sandbox', '--disable-infobars'], 'autoClose': False},
+                                    loop=self.spider.loop)
 
     async def fetch(self, request: Request) -> (Response, Exception):
+        page = await self.browser.newPage()
         try:
-            options = {"timeout": self.spider.settings.getint("DOWNLOAD_TIMEOUT")}
-            resp = await self.page.goto(request.url, options=options)
+            options = {"timeout": self.spider.settings.getint("DOWNLOAD_TIMEOUT") * 1000}
+            resp = await page.goto(request.url, options=options)
             response = Response(
                 url=str(resp.url),
                 status=resp.status,
@@ -41,7 +44,7 @@ class PyppeteerDownloader:
             self.spider.logger.debug(err)
             return None, PageError
         finally:
-            self.page.close()
+            await page.close()
 
     async def close(self):
         await self.browser.close()

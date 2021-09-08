@@ -4,7 +4,7 @@ import sys
 import time
 from asyncio import Semaphore, CancelledError
 from types import AsyncGeneratorType
-from typing import Optional, AsyncIterable, Callable, Coroutine
+from typing import Optional, AsyncIterable, Callable, Coroutine, final
 from inspect import isasyncgenfunction, iscoroutinefunction
 
 from fly.downloader import DownloaderManager
@@ -129,7 +129,12 @@ class Spider:
         if not response:
             async with semaphore:
                 start = time.time()
-                response, exception = await self.downloader_manager.fetch(request=request)
+                try:
+                    response, exception = await self.downloader_manager.fetch(request=request)
+                except Exception as err:
+                    exception = err
+                    self.logger.error(err)
+
                 if not response:
                     self._failed_count += 1
                     result = await self.downloader_middleware.process_exception(
@@ -165,7 +170,7 @@ class Spider:
         end = time.time()
 
         self.logger.info(f"Crawled ({response.status}) <{request.method}"
-                          f" {request.url}, cost {end - start}s>")
+                         f" {request.url}, cost {end - start}s>")
 
         # call request callback
         if request.callback:
@@ -202,6 +207,7 @@ class Spider:
             except QueueEmptyErr:
                 await asyncio.sleep(0.00001)
 
+    @final
     def fly(self):
         self.logger.info(f"{self.name} started")
         self.logger.info(f"Overridden settings: {Settings(self.custom_settings)}")
@@ -214,7 +220,6 @@ class Spider:
         except KeyboardInterrupt:
             # asyncio.run(self.middleware_manager.process_spider_stop(self))
             asyncio.run(self._stop())
-            self.loop.run_forever()
         finally:
             end = time.time()
 

@@ -32,7 +32,7 @@ class RetryMiddleware:
 class TestSpider(Spider):
     name = "Test Spider"
     custom_settings = {
-        "DOWNLOAD_TIMEOUT": 1,
+        "DOWNLOAD_TIMEOUT": 20,
         "DOWNLOADER_MIDDLEWARES": {
         },
         # "RETRY_HTTP_CODES": [200],
@@ -43,7 +43,7 @@ class TestSpider(Spider):
     }
 
     async def start_requests(self):
-        start_requests = ["https://www.python123.org/"]
+        start_requests = ["https://wenku.baidu.com/"]
         headers = {
             'Accept': 'application/json, text/javascript, */*; q=0.01',
             'Accept-Encoding': 'gzip, deflate',

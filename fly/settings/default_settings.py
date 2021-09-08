@@ -16,8 +16,7 @@ DOWNLOAD_DELAY = 0
 RANDOMIZE_DOWNLOAD_DELAY = False
 # 1min
 DOWNLOAD_TIMEOUT = 60
-# DOWNLOADER = 'fly.downloader.aiohttp_downloader.AiohttpDownloader'
-DOWNLOADER = 'fly.downloader.pyppeteer_downloader.PyppeteerDownloader'
+DOWNLOADER = 'fly.downloader.AiohttpDownloader'
 DOWNLOADER_MIDDLEWARES = {
     "fly.download_middlewares.user_agent.UserAgentMiddleware": 10000,
     "fly.download_middlewares.retry.RetryMiddleware": 10001,

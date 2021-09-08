@@ -4,8 +4,8 @@ problems such as a connection timeout or HTTP 500 error.
 """
 from typing import Union
 from asyncio import TimeoutError
-from aiohttp import ClientTimeout, ClientOSError, ClientConnectorError, ClientSSLError
-from pyppeteer.errors import PageError
+from aiohttp import ClientTimeout, ClientOSError, ClientConnectorError, ClientSSLError, ServerTimeoutError
+from pyppeteer.errors import PageError, TimeoutError as PyTimeoutError, NetworkError, BrowserError
 
 from fly.http.response import Response
 from fly.http.request import Request
@@ -28,7 +28,7 @@ async def get_retry_request(
     if retry_times <= max_retry_times:
         if reason:
             spider.logger.info(
-                f"Retrying {request} (failed {retry_times} times): {reason.__name__}"
+                f"Retrying {request} (failed {retry_times} times): {reason}"
             )
         else:
             spider.logger.info(
@@ -45,7 +45,7 @@ async def get_retry_request(
     else:
         if reason:
             spider.logger.error(
-                f"Gave up retrying {request} (failed {retry_times} times): {reason.__name__}",
+                f"Gave up retrying {request} (failed {retry_times} times): {reason}",
             )
         else:
             spider.logger.error(
@@ -56,10 +56,25 @@ async def get_retry_request(
 
 class RetryMiddleware:
     name = "retry middleware"
+
     # IOError is raised by the HttpCompression middleware when trying to
     # decompress an empty response
-    EXCEPTIONS_TO_RETRY = (TimeoutError, ConnectionRefusedError, ClientTimeout, ClientOSError,
-                           ClientConnectorError, ClientSSLError, IOError, PageError)
+    EXCEPTIONS_TO_RETRY = (
+        TimeoutError,
+        ConnectionRefusedError,
+        IOError,
+
+        ClientTimeout,
+        ClientOSError,
+        ClientConnectorError,
+        ClientSSLError,
+        ServerTimeoutError,
+
+        PageError,
+        PyTimeoutError,
+        NetworkError,
+        BrowserError
+    )
 
     def __init__(self, spider: Spider):
         self.enable_retry = spider.settings.getboolean("ENABLE_RETRY", True)

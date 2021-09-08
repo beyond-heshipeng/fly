@@ -1,12 +1,12 @@
 import asyncio
 import random
+from typing import TypeVar
 
 import aiohttp
 import async_timeout
 
 from fly.http.request import Request
 from fly.http.response import Response
-from fly.spider import Spider
 from fly.utils.log import Logger
 
 try:
@@ -17,10 +17,13 @@ except ImportError:
     pass
 
 
+SpiderType = TypeVar("SpiderType", bound="Spider")
+
+
 class AiohttpDownloader:
     name = 'fly.downloader.AiohttpDownloader'
 
-    def __init__(self, spider: Spider):
+    def __init__(self, spider: SpiderType):
         self.settings = spider.settings
         self.request_session = aiohttp.ClientSession()
         self.randomize_delay = self.settings.getboolean("RANDOMIZE_DOWNLOAD_DELAY")

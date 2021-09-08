@@ -1,9 +1,10 @@
 from fly.settings import Settings
-from fly.settings import default_settings
 from fly.utils.python import without_none_values, without_empty_values
 
 
 def get_settings(settings: dict = None):
+    from fly.settings import default_settings
+
     items = {}
     variables = dir(default_settings)
     for var in variables:

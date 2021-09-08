@@ -16,3 +16,7 @@ class QueueEmptyErr(Exception):
 
 class InvalidDownloaderErr(Exception):
     pass
+
+
+class UnhandledDownloadErr(Exception):
+    pass

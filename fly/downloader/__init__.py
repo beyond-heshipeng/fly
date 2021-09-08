@@ -5,6 +5,7 @@ from fly.exceptions import InvalidDownloaderErr
 from fly.http.request import Request
 from fly.http.response import Response
 from fly.utils.misc import load_object
+from .aiohttp_downloader import AiohttpDownloader
 
 
 SpiderType = TypeVar("SpiderType", bound="Spider")
@@ -18,12 +19,9 @@ class DownloaderManager:
 
     async def fetch(self, request: Request) -> (Response, Exception):
         if hasattr(self.download_obj, "fetch"):
-            try:
-                if iscoroutinefunction(self.download_obj.fetch):
-                    return await self.download_obj.fetch(request)
-                return self.download_obj.fetch(request)
-            except Exception as e:
-                raise InvalidDownloaderErr(f"<{repr(self.download_obj)}>: {e}")
+            if iscoroutinefunction(self.download_obj.fetch):
+                return await self.download_obj.fetch(request)
+            return self.download_obj.fetch(request)
 
     @classmethod
     def from_spider(cls, spider: SpiderType, *args, **kwargs):
@@ -50,3 +48,6 @@ class DownloaderManager:
                 self.download_obj.close()
             except Exception as e:
                 raise InvalidDownloaderErr(f"<{repr(self.download_obj)}>: {e}")
+
+
+__all__ = ["DownloaderManager", "AiohttpDownloader"]
