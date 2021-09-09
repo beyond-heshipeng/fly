@@ -37,6 +37,7 @@
 #
 # print('TIME: ', now() - start)
 # import json
+import signal
 import sys
 from pprint import pformat
 # ds = [{'hello': 'there'}]
@@ -50,17 +51,82 @@ from pprint import pformat
 # print(resp.text)
 
 
-# import asyncio
-# from pyppeteer import launch
-#
-#
-# async def main():
-#     browser = await launch()
-#     page = await browser.newPage()
-#     await page.goto('https://wenku.baidu.com')
-#     await page.screenshot({'path': 'example.png'})
-#     await browser.close()
-#
-# asyncio.get_event_loop().run_until_complete(main())
-#
-#
+import asyncio
+import nest_asyncio
+
+from aiomultiprocess import Process
+
+from pyppeteer import launch
+from pyppeteer.errors import PageError
+
+if sys.version_info >= (3, 8) and sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+
+is_close = False
+
+
+async def run():
+    global is_close
+    while not is_close:
+        await asyncio.ensure_future(handle_request("http://wenku.baidu.com"))
+        await asyncio.sleep(5)
+
+
+async def handle_request(url):
+    return await fetch(url)
+
+
+async def fetch(url):
+    browser = await launch(headless=False,
+                           handleSIGINT=False,
+                           handleSIGTERM=False,
+                           handleSIGHUP=False,
+                           autoClose=False,
+                           userDataDir="./examples/baidu_library/cache",
+                           options={'args': ['--disable-infobars']})
+    page = await browser.newPage()
+    try:
+        options = {"timeout": 30000}
+        resp = await page.goto(url, options=options)
+        response = await resp.text()
+
+        return response, None
+    except PageError as err:
+        print(err)
+        return None, PageError
+    finally:
+        await page.close()
+        await browser.close()
+
+
+def close():
+    loop.close()
+
+
+# nest_asyncio.apply()
+loop = asyncio.get_event_loop()
+try:
+    # asyncio.ensure_future(run(), loop=loop)
+    # signal.signal(signal.SIGINT, close)
+    # signal.signal(signal.SIGTERM, close)
+    # loop.run_forever()
+    loop.run_until_complete(run())
+    print(222)
+except KeyboardInterrupt:
+    print(111)
+    is_close = True
+    if not loop.is_closed():
+        loop.stop()
+    loop.run_forever()
+finally:
+    if not loop.is_closed():
+        loop.close()
+    # if not loop.is_closed():
+    #     loop.close()
+    # loop.shutdown_asyncgens()
+    pass
+
+# loop.run_until_complete(run())
+# is_close = True
+# loop.close()

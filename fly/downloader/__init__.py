@@ -1,3 +1,4 @@
+import asyncio
 from inspect import iscoroutinefunction
 from typing import TypeVar
 
@@ -32,7 +33,7 @@ class DownloaderManager:
     async def open(self):
         if hasattr(self.download_obj, "open"):
             try:
-                if iscoroutinefunction(self.download_obj.close):
+                if iscoroutinefunction(self.download_obj.open):
                     await self.download_obj.open()
                     return
                 self.download_obj.open()

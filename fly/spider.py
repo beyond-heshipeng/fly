@@ -79,7 +79,6 @@ class Spider:
             yield Request(url, skip_filter=True)
 
     async def enqueue_request(self, request: Request) -> None:
-        # self.queue.put_nowait((request.priority, request))
         self.loop.call_soon_threadsafe(self.queue.put_nowait, (request.priority, request))
 
     async def has_pending_requests(self) -> bool:
@@ -177,6 +176,7 @@ class Spider:
             await self._handle_request_callback(request.callback, response)
 
     async def _run(self):
+        # asyncio.run(self.middleware_manager.process_spider_start(self))
         await self.downloader_manager.open()
 
         # url from start_urls
@@ -214,9 +214,7 @@ class Spider:
         start = time.time()
 
         try:
-            # asyncio.run(self.middleware_manager.process_spider_start(self))
             self.loop.run_until_complete(self._run())
-            # self.loop.run_until_complete(self.loop.shutdown_asyncgens())
         except KeyboardInterrupt:
             # asyncio.run(self.middleware_manager.process_spider_stop(self))
             asyncio.run(self._stop())
