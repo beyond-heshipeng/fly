@@ -2,7 +2,7 @@ import re
 from urllib.parse import urljoin
 
 from fly.http.response import Response
-from fly.spider import Spider, Request
+from fly.spiders import Spider, Request
 
 
 class TestSpider(Spider):

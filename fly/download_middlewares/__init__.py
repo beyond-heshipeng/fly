@@ -30,7 +30,7 @@ class DownloadMiddlewareManager(MiddlewareManager):
             self.methods['process_exception'].appendleft(middleware.process_exception)
 
     async def process_spider_start(self, spider):
-        """ spider middleware, before spider
+        """ spiders middleware, before spiders
 
         :return:
         """
@@ -44,7 +44,7 @@ class DownloadMiddlewareManager(MiddlewareManager):
                     raise InvalidMiddlewareErr(f"<{repr(mw)}>: {e}")
 
     async def process_spider_stop(self, spider):
-        """ spider middleware, after spider
+        """ spiders middleware, after spiders
 
         :return:
         """

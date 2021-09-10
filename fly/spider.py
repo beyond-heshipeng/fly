@@ -1,5 +1,4 @@
 import asyncio
-import os
 import sys
 import time
 from asyncio import Semaphore, CancelledError
@@ -7,17 +6,17 @@ from types import AsyncGeneratorType
 from typing import Optional, AsyncIterable, Callable, Coroutine, final
 from inspect import isasyncgenfunction, iscoroutinefunction
 
+from fly.utils.log import Logger
 from fly.downloader import DownloaderManager
 from fly.exceptions import QueueEmptyErr
 from fly.settings import Settings
 from fly.http.request import Request
 from fly.http.response import Response
 from fly.download_middlewares import DownloadMiddlewareManager
-from fly.utils.log import Logger
 from fly.utils.settings import get_settings
 
 if sys.version_info >= (3, 8) and sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 if sys.version_info >= (3, 9):
     async_all_tasks = asyncio.all_tasks
@@ -33,7 +32,7 @@ except ImportError:
     pass
 
 
-class Spider:
+class Spider(object):
     name: Optional[str] = None
     start_urls: Optional[list] = []
 
@@ -58,14 +57,10 @@ class Spider:
 
         self.logger = Logger(self.settings, self.name)
 
-        if os.name == 'nt':
-            self.loop = asyncio.ProactorEventLoop()
-        else:
-            self.loop = asyncio.get_event_loop()
-        asyncio.set_event_loop(self.loop)
-
-        self.queue = asyncio.PriorityQueue()
         self.semaphore = asyncio.Semaphore(self.settings.getint("CONCURRENT_REQUESTS"))
+
+        self.loop = asyncio.get_event_loop()
+        self.queue = asyncio.PriorityQueue()
 
         self.downloader_manager = DownloaderManager.from_spider(self)
         self.downloader_middleware = DownloadMiddlewareManager.from_spider(self)
@@ -202,7 +197,7 @@ class Spider:
 
         while not self._close_spider:
             try:
-                request = await self._next_request()
+                request = await asyncio.wait_for(self._next_request(), 5)
                 asyncio.ensure_future(self._handle_request(request, self.semaphore))
             except QueueEmptyErr:
                 await asyncio.sleep(0.00001)
@@ -211,7 +206,6 @@ class Spider:
     def fly(self):
         self.logger.info(f"{self.name} started")
         self.logger.info(f"Overridden settings: {Settings(self.custom_settings)}")
-        start = time.time()
 
         try:
             self.loop.run_until_complete(self._run())
@@ -220,12 +214,10 @@ class Spider:
             asyncio.run(self._stop())
             self.loop.run_forever()
         finally:
-            end = time.time()
 
             self.logger.info(f"Success count: {self._success_count}")
             self.logger.info(f"Failure count: {self._failed_count}")
             self.logger.info(f"Total count: {self._success_count + self._failed_count}")
-            self.logger.info(f"Time usage: {end - start}")
             self.logger.info(f"Closing {self.name} (finished)")
 
             if not self.loop.is_closed():

@@ -30,7 +30,7 @@ class Logger:
             format=self._logging_format,
             level=logging_level,
             datefmt=self.settings.get("DATE_FORMAT", "%Y-%m-%d %H:%M:%S %Y"),
-            # handlers=[RichHandler(rich_tracebacks=True, show_time=False, show_path=False)]
+            handlers=[RichHandler(rich_tracebacks=True, show_time=False, show_path=False)]
         )
 
     def _add_handler(self):

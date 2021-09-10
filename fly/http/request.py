@@ -127,3 +127,5 @@ class Request(object):
         request_kwargs.update(kwargs)
         return cls(**request_kwargs)
 
+    def __lt__(self, other):
+        return self.priority < other.priority
