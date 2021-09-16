@@ -1,8 +1,9 @@
+import asyncio
 import re
 from urllib.parse import urljoin
 
 from fly.http.response import Response
-from fly.spiders import Spider, Request
+from fly.spider import Spider, Request
 
 
 class TestSpider(Spider):
@@ -40,8 +41,12 @@ class TestSpider(Spider):
 if __name__ == '__main__':
     t = TestSpider()
     # asyncio.run(t.enqueue_request(Request(url="https://github.com/ttloveyy/sprite")))
+    t.fly()
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete(t.fly())
+    # asyncio.run(t.enqueue_request(Request(url="https://github.com/ttloveyy/sprite")))
     # asyncio.run(t.enqueue_request(Request(url="https://github.com/ttloveyy/sprite")))
     # asyncio.run(t.enqueue_request(Request(url="https://www.zyte.com/blog/", callback=t.callback_test)))
     # asyncio.run(t.enqueue_request(Request(url="https://github.com/ttloveyy/sprite")))
-    t.fly()
+    # t.fly()
     # asyncio.run(t.enqueue_request(Request(url="https://github.com/ttloveyy/sprite")))

@@ -1,55 +1,7 @@
-# import asyncio
-#
-# import time
-#
-# now = lambda: time.time()
-#
-#
-# async def do_some_work(x):
-#     async with semaphore:
-#         print('Waiting: ', x)
-#
-#         await asyncio.sleep(x)
-#     return 'Done after {}s'.format(x)
-#
-# start = now()
-#
-# coroutine1 = do_some_work(1)
-# coroutine2 = do_some_work(2)
-# coroutine3 = do_some_work(3)
-# coroutine4 = do_some_work(4)
-# coroutine5 = do_some_work(5)
-#
-# tasks = [
-#     asyncio.ensure_future(coroutine1),
-#     asyncio.ensure_future(coroutine2),
-#     asyncio.ensure_future(coroutine3),
-#     asyncio.ensure_future(coroutine4),
-#     asyncio.ensure_future(coroutine5),
-# ]
-#
-# semaphore = asyncio.Semaphore(5)
-# loop = asyncio.get_event_loop()
-# loop.run_until_complete(asyncio.wait(tasks))
-#
-# for task in tasks:
-#     print('Task ret: ', task.result())
-#
-# print('TIME: ', now() - start)
-# import json
+import hashlib
+import os
 import re
-import signal
 import sys
-from pprint import pformat
-# ds = [{'hello': 'there'}]
-# logging.debug(pformat(ds))
-# print(json.dumps([{'hello': 'there'}, {"111": 222}], indent=4))
-
-# import requests
-#
-# resp = requests.get('http://10.39.203.95:8050/render.html',
-#                     params={'url': 'https://36kr.com/search/articles/%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4', 'wait': 25})
-# print(resp.text)
 
 
 import asyncio
@@ -63,34 +15,28 @@ if sys.version_info >= (3, 8) and sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
-pic_count = 0
-
-
 async def fetch(url):
-    browser = await launch(headless=False,
-                           userDataDir="./examples/baidu_library/cache")
+    browser = await launch(userDataDir="./examples/baidu_wenku/cache",
+                           autoClose=False,
+                           options={'args': ['--no-sandbox', '--disable-gpu']})
     page = await browser.newPage()
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/93.0.4577.63 Safari/537.36")
     try:
 
         options = {"timeout": 60000}
         await page.goto(url, options=options)
-        await page.evaluate(
-            '''() =>{ Object.defineProperties(navigator,{ webdriver:{ get: () => false } }) }''')
-
-        await page.evaluate("""
-             () => {
-                 let elements = document.getElementsByClassName("read-all");
-                 if (elements && elements.length > 0) {
-                    elements[0].click();
-                    window.scrollTo(0, 5000);
-                 }
-            }
-        """)
+        await page.evaluate('''
+                    () => {
+                        let elements = document.getElementsByClassName("read-all");
+                        if (elements && elements.length > 0) {
+                           elements[0].click();
+                           window.scrollTo(0, 5000);
+                        }
+                   }
+               ''')
 
         response = await page.content()
-        # print(response)
-        # await asyncio.sleep(60)
-
         return response
     except PageError as err:
         print(err)
@@ -100,7 +46,12 @@ async def fetch(url):
         await browser.close()
 
 
-# nest_asyncio.apply()
+def md5(string):
+    h1 = hashlib.md5()
+    h1.update(string.encode(encoding="utf-8"))
+    return h1.hexdigest()
+
+
 if __name__ == '__main__':
     start_requests = [
         "https://wenku.baidu.com/search?word=智慧能源ppt"
@@ -116,28 +67,56 @@ if __name__ == '__main__':
     async def parse_detail(response):
         tree = html.fromstring(response)
         title = tree.xpath("//h3[@class='doc-title']//text()")
+        tags = tree.xpath("//div[@class='doc-tag-wrap']/div//text()")
+        tags = [tag.strip().replace("\n", "") for tag in tags if tag != ""]
+        summary = "".join(tree.xpath("//div[@class='doc-summary-wrap']//text()"))
+        score = re.findall(r"([0-9.]+)分", summary)
+        read_times = re.findall(r"([0-9]+)阅读", summary)
+        download_times = re.findall(r"([0-9]+)下载", summary)
+        upload_time = re.findall(r"([0-9]{4}-[0-9]{2}-[0-9]{2})上传", summary)
+        pages = re.findall(r"([0-9]+)页", summary)
+        size = re.findall(r"([0-9.]+)MB", summary)
+
         images = []
         images.extend(tree.xpath("//img[starts-with(@src, 'https://wkretype.bdimg.com/retype/zoom')]/@src"))
         images.extend(tree.xpath("//img[starts-with(@data-src, 'https://wkretype.bdimg.com/retype/zoom')]/@data-src"))
-        summary = "".join(tree.xpath("//div[@class='doc-summary-wrap']//text()"))
-        time = re.findall(r"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}", summary)
 
-        for image in images:
-            body = {
-                "doc_title": title[0],
-                "image": image,
-                "image_time": time[0]
-            }
-            print(body)
+        print(title, tags, score, read_times, download_times, upload_time, pages, size, images)
 
-            global pic_count
-            with open(f"images/{pic_count}.jpg", "wb") as f:
+        # for image in images:
+        #     body = {
+        #         "doc_title": title[0],
+        #         "image": image,
+        #         "image_time": time[0]
+        #     }
+        #     print(body)
+
+        global ppt_count
+        path = f"ppt/ppt_demo_{ppt_count}/"
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        with open(f"{path}/summary.txt", "w+", encoding="utf-8") as f:
+            f.write(f"title: {title[0]}\n")
+            f.write(f"tags: {','.join(tags)}\n")
+            f.write(f"score: {score[0]}\n")
+            f.write(f"read_times: {read_times[0]}\n")
+            f.write(f"download_times: {download_times[0]}\n")
+            f.write(f"upload_times: {upload_time[0]}\n")
+            f.write(f"pages: {pages[0]}\n")
+            f.write(f"size: {size[0]}\n")
+
+        for index, image in enumerate(images):
+            with open(f"{path}/{index}.jpg", "wb") as f:
                 f.write(requests.get(image).content)
-            pic_count += 1
+        ppt_count += 1
+
             # resp = requests.post(url, json=body, headers={"Content-Type": "application/json"})
             # print(resp.status_code, resp.text)
 
     async def run():
+        await fetch("https://wenku.baidu.com/view/cf49cbf2fc4ffe473268ab15.html?"
+                    "fixfr=Ax%252BBl%252F3KXo7ygXE8umqIUA%253D%253D&fr=income1-wk_go_search-search")
         for url in start_requests:
             resp = await fetch(url)
             # print(resp)

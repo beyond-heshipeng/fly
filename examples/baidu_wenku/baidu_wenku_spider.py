@@ -3,12 +3,8 @@ from fly import Response, Spider, Request
 
 
 class BaiduLibrarySpider(Spider):
-    name = "baidu library spiders"
+    name = "baidu wenku spider"
     custom_settings = {
-        "DOWNLOAD_TIMEOUT": 60,
-        "DOWNLOADER": "downloader.PyppeteerDownloader",
-        "HEADLESS": False,
-        "USER_DATA_DIR": "./cache"
     }
 
     async def start_requests(self):

@@ -6,6 +6,8 @@ from types import AsyncGeneratorType
 from typing import Optional, AsyncIterable, Callable, Coroutine, final
 from inspect import isasyncgenfunction, iscoroutinefunction
 
+from aiomultiprocess import Worker, Pool
+
 from fly.utils.log import Logger
 from fly.downloader import DownloaderManager
 from fly.exceptions import QueueEmptyErr
@@ -16,7 +18,7 @@ from fly.download_middlewares import DownloadMiddlewareManager
 from fly.utils.settings import get_settings
 
 if sys.version_info >= (3, 8) and sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 if sys.version_info >= (3, 9):
     async_all_tasks = asyncio.all_tasks
@@ -170,10 +172,15 @@ class Spider(object):
         if request.callback:
             await self._handle_request_callback(request.callback, response)
 
-    async def _run(self):
-        # asyncio.run(self.middleware_manager.process_spider_start(self))
-        await self.downloader_manager.open()
+    async def schedule_request(self):
+        while not self._close_spider:
+            try:
+                request = await asyncio.wait_for(self._next_request(), 5)
+                asyncio.ensure_future(self._handle_request(request, self.semaphore))
+            except QueueEmptyErr:
+                await asyncio.sleep(0.00001)
 
+    async def _init_request(self):
         # url from start_urls
         async for request in self.make_request_from_url():
             await self.enqueue_request(request)
@@ -195,12 +202,23 @@ class Spider(object):
                     if isinstance(result, Request):
                         await self.enqueue_request(await start_requests())
 
-        while not self._close_spider:
-            try:
-                request = await asyncio.wait_for(self._next_request(), 5)
-                asyncio.ensure_future(self._handle_request(request, self.semaphore))
-            except QueueEmptyErr:
-                await asyncio.sleep(0.00001)
+    async def _run(self):
+        # asyncio.run(self.middleware_manager.process_spider_start(self))
+        await self.downloader_manager.open()
+
+        await self._init_request()
+
+        async with Pool() as pool:
+            async for _ in pool.map(self.schedule_request, ["1"]):
+                pass
+
+        # import threading
+        # t = threading.Thread(target=self.schedule_request)
+        # t.start()
+        # t.join()
+        # await Worker(
+        #     target=self.schedule_request,
+        # )
 
     @final
     def fly(self):
