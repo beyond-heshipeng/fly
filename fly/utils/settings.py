@@ -15,3 +15,6 @@ def get_settings(settings: dict = None):
         return Settings(items | without_empty_values(without_none_values(settings)))
 
     return Settings(items)
+
+
+get_project_settings = get_settings

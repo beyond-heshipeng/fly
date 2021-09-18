@@ -1,7 +1,14 @@
 from enum import Enum
 
 
-class EngineState(Enum):
-    ENGINE_STATE_RUNNING = 1
-    ENGINE_STATE_STOPPING = 2
-    ENGINE_STATE_STOPPED = 3
+class EngineStatus(Enum):
+    ENGINE_STATUS_RUNNING = 1
+    ENGINE_STATUS_STOPPING = 2
+    ENGINE_STATUS_STOPPED = 3
+    ENGINE_STATUS_SUSPENDING = 4
+
+
+class SpiderStatus(Enum):
+    SPIDER_STATUS_RUNNING = 1
+    SPIDER_STATUS_STOPPED = 2
+    SPIDER_STATUS_DELETED = 3

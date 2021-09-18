@@ -145,4 +145,3 @@ class Settings(Mapping):
 
     def __str__(self):
         return str(self.attributes)
-        # return _pformat(self.attributes)

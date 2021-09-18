@@ -6,8 +6,6 @@ from types import AsyncGeneratorType
 from typing import Optional, AsyncIterable, Callable, Coroutine, final
 from inspect import isasyncgenfunction, iscoroutinefunction
 
-from aiomultiprocess import Worker, Pool
-
 from fly.utils.log import Logger
 from fly.downloader import DownloaderManager
 from fly.exceptions import QueueEmptyErr
